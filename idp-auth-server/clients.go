@@ -154,6 +154,25 @@ func (s *server) register(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
+// deleteAllClients removes every dynamically registered client. It backs the
+// dashboard button and is a demo convenience, not an RFC 7592 endpoint.
+func (s *server) deleteAllClients(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	logRequest(s.log(), "delete-all-clients", r)
+
+	s.mu.Lock()
+	removed := len(s.clients)
+	s.clients = make(map[string]registeredClient)
+	s.mu.Unlock()
+
+	s.log().Info("registered clients deleted", "count", removed)
+
+	http.Redirect(w, r, s.externalURL, http.StatusSeeOther)
+}
+
 // normalizeClientMetadata applies defaults and validates the requested metadata.
 func normalizeClientMetadata(in clientMetadata) (clientMetadata, *registrationError) {
 	out := clientMetadata{

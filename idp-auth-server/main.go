@@ -186,6 +186,7 @@ func main() {
 	mux.HandleFunc("/endsession", srv.endsession)
 	mux.HandleFunc("/endsession-approve", srv.endsessionApprove)
 	mux.HandleFunc("/register", srv.register)
+	mux.HandleFunc("/clients/delete-all", srv.deleteAllClients)
 	mux.HandleFunc("/.well-known/jwks.json", srv.jwks)
 	mux.HandleFunc("/.well-known/openid-configuration", srv.openidConfiguration)
 	mux.HandleFunc("/.well-known/oauth-authorization-server", srv.oauthAuthorizationServer)

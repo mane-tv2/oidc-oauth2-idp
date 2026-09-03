@@ -37,7 +37,9 @@ registration via `POST /register` (open, no initial access token — MCP clients
 can self-register), and lists registered clients on the index page. Registered
 clients are not yet enforced at `/authorize` or `/token`. See
 [`idp-auth-server/README.md`](idp-auth-server/README.md#dynamic-client-registration)
-for the supported metadata and an example.
+for the supported metadata and an example, and
+[`docs/mcp-server-integration.md`](docs/mcp-server-integration.md) for how an
+MCP server should consume this IdP.
 
 Environment variables:
 
