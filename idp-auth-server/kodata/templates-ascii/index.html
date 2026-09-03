@@ -49,6 +49,36 @@
         <p class="ascii-line">+------------------------------------------------------------+</p>
       </section>
       {{end}}
+
+      <section class="ascii-card">
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+        <div class="ascii-row"><span class="edge">|</span><div class="content title">REGISTERED CLIENTS</div><span class="edge">|</span></div>
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+      </section>
+
+      {{if .Clients}}
+      {{range $client := .Clients}}
+      <section class="ascii-card">
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">[&gt;_&lt;] client: <strong>{{if $client.ClientName}}{{$client.ClientName}}{{else}}(unnamed client){{end}}</strong></div><span class="edge">|</span></div>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">client_id: {{$client.ClientID}}</div><span class="edge">|</span></div>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">registered: {{$client.CreatedAt}}</div><span class="edge">|</span></div>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">type: {{if $client.Confidential}}confidential{{else}}public{{end}} ({{$client.TokenEndpointAuthMethod}})</div><span class="edge">|</span></div>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">grant types: {{range $i, $grant := $client.GrantTypes}}{{if $i}}, {{end}}{{$grant}}{{end}}</div><span class="edge">|</span></div>
+        <div class="ascii-row"><span class="edge">|</span><div class="content">scope: {{$client.Scope}}</div><span class="edge">|</span></div>
+        {{range $redirectURI := $client.RedirectURIs}}
+        <div class="ascii-row"><span class="edge">|</span><div class="content">redirect_uri: {{$redirectURI}}</div><span class="edge">|</span></div>
+        {{end}}
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+      </section>
+      {{end}}
+      {{else}}
+      <section class="ascii-card">
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+        <div class="ascii-row"><span class="edge">|</span><div class="content muted">No dynamically registered clients.</div><span class="edge">|</span></div>
+        <p class="ascii-line">+------------------------------------------------------------+</p>
+      </section>
+      {{end}}
     </main>
   </body>
 </html>

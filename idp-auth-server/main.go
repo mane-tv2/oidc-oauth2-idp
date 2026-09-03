@@ -77,6 +77,7 @@ type server struct {
 	authContext map[string]authContextEntry
 	codeMeta    map[string]codeMetadataEntry
 	sessions    map[string]session
+	clients     map[string]registeredClient // dynamically registered clients, keyed by client_id
 
 	templates    map[string]*template.Template
 	templatesDir string
@@ -99,6 +100,18 @@ type server struct {
 
 type indexData struct {
 	Sessions []sessionView
+	Clients  []registeredClientView
+}
+
+type registeredClientView struct {
+	ClientID                string
+	ClientName              string
+	CreatedAt               string
+	RedirectURIs            []string
+	GrantTypes              []string
+	Scope                   string
+	TokenEndpointAuthMethod string
+	Confidential            bool
 }
 
 type sessionView struct {
@@ -172,8 +185,10 @@ func main() {
 	mux.HandleFunc("/userinfo", srv.userinfo)
 	mux.HandleFunc("/endsession", srv.endsession)
 	mux.HandleFunc("/endsession-approve", srv.endsessionApprove)
+	mux.HandleFunc("/register", srv.register)
 	mux.HandleFunc("/.well-known/jwks.json", srv.jwks)
 	mux.HandleFunc("/.well-known/openid-configuration", srv.openidConfiguration)
+	mux.HandleFunc("/.well-known/oauth-authorization-server", srv.oauthAuthorizationServer)
 	for i := 1; i <= 8; i++ {
 		path := fmt.Sprintf("/avatars/%d.svg", i)
 		mux.HandleFunc(path, srv.avatar)
@@ -252,6 +267,7 @@ func newServer(logger *slog.Logger) (*server, error) {
 		authContext:          map[string]authContextEntry{},
 		codeMeta:             map[string]codeMetadataEntry{},
 		sessions:             map[string]session{},
+		clients:              map[string]registeredClient{},
 		templates:            templates,
 		templatesDir:         templatesDir,
 		appPort:              appPort,
@@ -348,7 +364,7 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 			ClientSessions: clientViews,
 		})
 	}
-	data := indexData{Sessions: views}
+	data := indexData{Sessions: views, Clients: s.registeredClientViewsLocked()}
 	s.mu.Unlock()
 
 	renderTemplate(w, s.templates["index"], data)
@@ -443,7 +459,8 @@ func (s *server) authorize(w http.ResponseWriter, r *http.Request) {
 	clientID := r.Form.Get("client_id")
 	scope := r.Form.Get("scope")
 	redirectURI := r.Form.Get("redirect_uri")
-	// FIXME: Validate client_id and redirect_uri against a registered client registry.
+	// FIXME: Validate client_id and redirect_uri against the registered client
+	// registry (see clients.go); registration is currently not enforced here.
 	state := r.Form.Get("state")
 	nonce := r.Form.Get("nonce")
 	prompt := r.Form.Get("prompt")
@@ -702,7 +719,8 @@ func (s *server) token(w http.ResponseWriter, r *http.Request) {
 
 	clientAuth := r.Header.Get("Authorization")
 	s.log().Debug("get-token client auth", "authorization", clientAuth)
-	// FIXME: Validate client authentication (client_secret_basic or client_secret_post).
+	// FIXME: Validate client authentication (client_secret_basic or
+	// client_secret_post) against the registered client registry (see clients.go).
 
 	grantType := r.Form.Get("grant_type")
 	s.log().Debug("get-token grant type", "grant_type", grantType)
@@ -1028,25 +1046,43 @@ func (s *server) openidConfiguration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config := map[string]any{
+	writeJSON(w, s.authorizationServerMetadata())
+}
+
+// oauthAuthorizationServer serves RFC 8414 authorization server metadata, which
+// is what OAuth-only clients (such as MCP clients) discover.
+func (s *server) oauthAuthorizationServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	writeJSON(w, s.authorizationServerMetadata())
+}
+
+func (s *server) authorizationServerMetadata() map[string]any {
+	return map[string]any{
 		"issuer":                                s.externalURL,
 		"authorization_endpoint":                s.externalURL + "/authorize",
 		"token_endpoint":                        s.externalURL + "/token",
 		"userinfo_endpoint":                     s.externalURL + "/userinfo",
+		"registration_endpoint":                 s.externalURL + "/register",
 		"jwks_uri":                              s.externalURL + "/.well-known/jwks.json",
 		"end_session_endpoint":                  s.externalURL + "/endsession",
-		"response_types_supported":              []string{"code"},
+		"response_types_supported":              supportedResponseTypes,
 		"subject_types_supported":               []string{s.subjectType},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
-		"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
+		"grant_types_supported":                 supportedGrantTypes,
 		"code_challenge_methods_supported":      []string{"S256", "plain"},
 		"scopes_supported":                      []string{"openid", "profile", "email", "offline_access"},
 		"claims_supported":                      []string{"sub", "name", "picture", "email", "email_verified"},
-		"token_endpoint_auth_methods_supported": []string{"client_secret_basic"},
+		"token_endpoint_auth_methods_supported": supportedTokenEndpointAuthAlgos,
 	}
+}
 
+func writeJSON(w http.ResponseWriter, payload any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 func (s *server) issueToken(subject string, audience []string, claims map[string]any, expiry time.Time) (string, map[string]any, error) {

@@ -17,8 +17,11 @@ The server listens on `0.0.0.0:5001` by default.
 ## Useful URLs
 
 - Index: `http://127.0.0.1:5001/`
-- Discovery: `http://127.0.0.1:5001/.well-known/openid-configuration`
+- Discovery (OIDC): `http://127.0.0.1:5001/.well-known/openid-configuration`
+- Discovery (OAuth 2.0, RFC 8414):
+  `http://127.0.0.1:5001/.well-known/oauth-authorization-server`
 - JWKS: `http://127.0.0.1:5001/.well-known/jwks.json`
+- Dynamic client registration: `POST http://127.0.0.1:5001/register`
 - Start auth flow (shows login page):
 
 ```text
@@ -26,6 +29,61 @@ http://127.0.0.1:5001/authorize?client_id=my-client&scope=openid+profile&redirec
 ```
 
 Login accepts any username and requires password `valid`.
+
+## Dynamic client registration
+
+The IdP implements [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591) dynamic
+client registration so that clients — MCP clients in particular — can register
+themselves. The `registration_endpoint` is advertised in both discovery
+documents.
+
+Registration is **open**: no initial access token is required. This matches the
+rest of this IdP's intentionally permissive demo posture.
+
+Register a public client (PKCE, no secret):
+
+```bash
+curl -sX POST http://127.0.0.1:5001/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "client_name": "My MCP Client",
+        "redirect_uris": ["http://127.0.0.1:6274/oauth/callback"],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_method": "none"
+      }'
+```
+
+Omit `token_endpoint_auth_method` (or set it to `client_secret_basic` /
+`client_secret_post`) to get a confidential client; the generated
+`client_secret` is returned once in the registration response and is never
+displayed again.
+
+Supported metadata and defaults:
+
+| Field | Default | Accepted values |
+| --- | --- | --- |
+| `redirect_uris` | — (required for `authorization_code`) | absolute URIs without a fragment |
+| `grant_types` | `["authorization_code"]` | `authorization_code`, `refresh_token` |
+| `response_types` | `["code"]` | `code` |
+| `scope` | `openid profile email` | any space-separated scope string |
+| `token_endpoint_auth_method` | `client_secret_basic` | `client_secret_basic`, `client_secret_post`, `none` |
+| `client_name` | empty | any string |
+
+Invalid metadata is rejected with `400` and an `invalid_client_metadata` or
+`invalid_redirect_uri` error, as specified in RFC 7591 section 3.2.2.
+
+Registered clients are listed on the index page (name, `client_id`,
+registration time, redirect URIs, grant types, scope, and whether the client is
+confidential — never the secret).
+
+Current limitations:
+
+- Registrations are held in memory and lost when the process restarts.
+- Client secrets are stored in plaintext in memory.
+- Registration is **not yet enforced**: `/authorize` and `/token` still accept
+  any `client_id` and `redirect_uri`, exactly as before.
+- Client management (RFC 7592 read/update/delete of a registration) is not
+  implemented.
 
 ## Environment variables
 
