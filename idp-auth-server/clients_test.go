@@ -318,3 +318,41 @@ func TestIndexRendersRegisteredClients(t *testing.T) {
 		}
 	}
 }
+
+func TestDeleteAllClients(t *testing.T) {
+	t.Parallel()
+
+	srv := newRegistrationTestServer()
+	postRegistration(t, srv, `{"redirect_uris": ["https://rp.example.com/callback"]}`)
+	postRegistration(t, srv, `{"redirect_uris": ["https://other.example.com/callback"]}`)
+	if len(srv.clients) != 2 {
+		t.Fatalf("expected 2 registered clients, got %d", len(srv.clients))
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/clients/delete-all", nil)
+	rec := httptest.NewRecorder()
+	srv.deleteAllClients(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != srv.externalURL {
+		t.Fatalf("expected redirect to %q, got %q", srv.externalURL, got)
+	}
+	if len(srv.clients) != 0 {
+		t.Fatalf("expected no registered clients, got %d", len(srv.clients))
+	}
+}
+
+func TestDeleteAllClientsRejectsGET(t *testing.T) {
+	t.Parallel()
+
+	srv := newRegistrationTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/clients/delete-all", nil)
+	rec := httptest.NewRecorder()
+	srv.deleteAllClients(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}

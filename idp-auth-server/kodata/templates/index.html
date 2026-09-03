@@ -67,6 +67,9 @@
           {{end}}
         </div>
         {{end}}
+        <form action="/clients/delete-all" method="post">
+          <button class="btn btn-danger" type="submit">Delete all clients</button>
+        </form>
       {{else}}
         <p class="meta">No dynamically registered clients.</p>
       {{end}}
