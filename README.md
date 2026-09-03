@@ -28,8 +28,16 @@ for production or any environment where real authentication guarantees are
 required.
 
 At runtime, it serves both browser-facing pages and protocol endpoints from one
-process, including `/authorize`, `/token`, `/userinfo`,
-`/.well-known/openid-configuration`, and `/.well-known/jwks.json`.
+process, including `/authorize`, `/token`, `/userinfo`, `/register`,
+`/.well-known/openid-configuration`,
+`/.well-known/oauth-authorization-server`, and `/.well-known/jwks.json`.
+
+It supports [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591) dynamic client
+registration via `POST /register` (open, no initial access token — MCP clients
+can self-register), and lists registered clients on the index page. Registered
+clients are not yet enforced at `/authorize` or `/token`. See
+[`idp-auth-server/README.md`](idp-auth-server/README.md#dynamic-client-registration)
+for the supported metadata and an example.
 
 Environment variables:
 

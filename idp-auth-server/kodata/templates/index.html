@@ -47,6 +47,30 @@
         <p class="meta">No active sessions.</p>
       {{end}}
       </div>
+
+      <h1 class="heading">Registered Clients</h1>
+      <div class="card">
+      {{if .Clients}}
+        {{range $client := .Clients}}
+        <div class="client-session">
+          <p class="meta client-session-header">{{if $client.ClientName}}{{$client.ClientName}}{{else}}(unnamed client){{end}}</p>
+          <p class="meta">client_id: {{$client.ClientID}}</p>
+          <p class="meta">registered: {{$client.CreatedAt}}</p>
+          <p class="meta">type: {{if $client.Confidential}}confidential{{else}}public{{end}} ({{$client.TokenEndpointAuthMethod}})</p>
+          <p class="meta">grant types: {{range $i, $grant := $client.GrantTypes}}{{if $i}}, {{end}}{{$grant}}{{end}}</p>
+          <p class="meta">scope: {{$client.Scope}}</p>
+          {{if $client.RedirectURIs}}
+          <p class="meta">redirect URIs:</p>
+          <ul class="meta">
+            {{range $redirectURI := $client.RedirectURIs}}<li>{{$redirectURI}}</li>{{end}}
+          </ul>
+          {{end}}
+        </div>
+        {{end}}
+      {{else}}
+        <p class="meta">No dynamically registered clients.</p>
+      {{end}}
+      </div>
     </main>
   </body>
 </html>
